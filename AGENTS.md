@@ -41,3 +41,9 @@ TokenVault 是一个用于**自用 2FA/TOTP 管理**的 Next.js（App Router）�
 - 最小环境变量（仅 3 个）：`SUPABASE_URL`、`SUPABASE_SERVICE_ROLE_KEY`、`ADMIN_PASSWORD`。
 - `API_KEY` 不用环境变量：由后台生成并写入数据库（建议存哈希），脚本用 `Authorization: Bearer ...`。
 - 任何 SQL 迁移/批量导入前先备份；避免提交 `.next/` 等生成产物与无意改动 `pnpm-lock.yaml`。
+
+## 协作约定（提交偏好）
+
+- Commit message：默认由助手基于改动内容按 Conventional Commits 生成。
+- 拆分策略：按“变更类型/模块”拆分为多个小提交（避免大杂烩提交）。
+- 校验默认：提交前至少运行 `pnpm lint`；如涉及依赖/构建/路由等关键改动，补跑 `pnpm build`。
