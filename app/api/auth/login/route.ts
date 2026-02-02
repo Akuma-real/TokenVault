@@ -39,12 +39,12 @@ export async function POST(req: Request) {
 
   if (!ok) {
     return wantsHtml
-      ? NextResponse.redirect(new URL("/login?e=1", req.url), { status: 303 })
+      ? NextResponse.redirect("/login?e=1", { status: 303 })
       : NextResponse.json({ error: "invalid_password" }, { status: 401 });
   }
 
   const res = wantsHtml
-    ? NextResponse.redirect(new URL("/accounts", req.url), { status: 303 })
+    ? NextResponse.redirect("/accounts", { status: 303 })
     : NextResponse.json({ ok: true });
 
   await setSessionCookie(res);
