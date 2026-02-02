@@ -4,6 +4,7 @@ import { decodeBase32, normalizeBase32Secret } from "@/lib/base32";
 import { encryptSecret } from "@/lib/secret";
 import { base64urlToBytes, bytesToBase64url, normalizeToBase64url } from "@/lib/base64url";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { redirect303 } from "@/lib/http";
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -189,7 +190,7 @@ export async function PATCH(req: Request, { params }: Params) {
   const accept = req.headers.get("accept") ?? "";
   const wantsHtml = accept.includes("text/html");
   const res = wantsHtml
-    ? NextResponse.redirect("/accounts", { status: 303 })
+    ? redirect303("/accounts")
     : NextResponse.json({ ok: true });
 
   res.headers.set("Cache-Control", "no-store");
@@ -213,7 +214,7 @@ export async function DELETE(req: Request, { params }: Params) {
   const accept = req.headers.get("accept") ?? "";
   const wantsHtml = accept.includes("text/html");
   const res = wantsHtml
-    ? NextResponse.redirect("/accounts", { status: 303 })
+    ? redirect303("/accounts")
     : NextResponse.json({ ok: true });
 
   res.headers.set("Cache-Control", "no-store");

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { env } from "@/lib/env";
 import { setSessionCookie } from "@/lib/auth";
 import { utf8ToBytes } from "@/lib/base64url";
+import { redirect303 } from "@/lib/http";
 
 function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
@@ -39,12 +40,12 @@ export async function POST(req: Request) {
 
   if (!ok) {
     return wantsHtml
-      ? NextResponse.redirect("/login?e=1", { status: 303 })
+      ? redirect303("/login?e=1")
       : NextResponse.json({ error: "invalid_password" }, { status: 401 });
   }
 
   const res = wantsHtml
-    ? NextResponse.redirect("/accounts", { status: 303 })
+    ? redirect303("/accounts")
     : NextResponse.json({ ok: true });
 
   await setSessionCookie(res);
