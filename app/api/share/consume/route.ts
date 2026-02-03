@@ -1,0 +1,121 @@
+import { NextResponse } from "next/server";
+import { decryptSecret } from "@/lib/secret";
+import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { base64urlToBytes } from "@/lib/base64url";
+import { generateSteamGuardCode, generateTotp } from "@/lib/totp";
+import { sha256Hex } from "@/lib/crypto";
+
+async function readBody(req: Request): Promise<Record<string, unknown>> {
+  const contentType = req.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    try {
+      return (await req.json()) as Record<string, unknown>;
+    } catch {
+      return {};
+    }
+  }
+  try {
+    const form = await req.formData();
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of form.entries()) out[k] = v;
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+function noStore(res: NextResponse): NextResponse {
+  res.headers.set("Cache-Control", "no-store");
+  return res;
+}
+
+export async function POST(req: Request) {
+  const body = await readBody(req);
+  const token = typeof body.token === "string" ? body.token.trim() : "";
+  if (!token) return noStore(NextResponse.json({ error: "token_required" }, { status: 400 }));
+
+  const supabase = getSupabaseAdmin();
+  const tokenHash = await sha256Hex(token);
+  const { data: peekRows, error: peekError } = await supabase.rpc("peek_share_token", {
+    p_token_hash: tokenHash,
+  });
+
+  if (peekError) {
+    return noStore(NextResponse.json({ error: "db_error", details: peekError.message }, { status: 500 }));
+  }
+
+  const peek =
+    Array.isArray(peekRows) && peekRows.length > 0
+      ? (peekRows[0] as { account_id?: string; is_valid?: boolean })
+      : null;
+
+  const accountId = peek?.account_id ?? null;
+  if (!accountId || !peek?.is_valid) return noStore(NextResponse.json({ error: "gone" }, { status: 410 }));
+
+  const { data: account, error: accountError } = await supabase
+    .from("accounts")
+    .select("label,issuer,encrypted_secret,digits,period,algorithm")
+    .eq("id", accountId)
+    .single();
+
+  if (accountError || !account) {
+    return noStore(
+      NextResponse.json(
+        { error: "db_error", details: accountError?.message ?? "not_found" },
+        { status: 500 },
+      ),
+    );
+  }
+
+  let secret = "";
+  try {
+    secret = await decryptSecret(account.encrypted_secret);
+  } catch {
+    return noStore(NextResponse.json({ error: "decrypt_failed" }, { status: 500 }));
+  }
+
+  const algorithm = (account.algorithm ?? "SHA1").toUpperCase();
+  const period = account.period ?? 30;
+
+  let code = "";
+  let ttl = 0;
+  if (algorithm === "STEAM") {
+    let secretBytes: Uint8Array;
+    try {
+      secretBytes = base64urlToBytes(secret);
+    } catch {
+      return noStore(NextResponse.json({ error: "invalid_secret" }, { status: 500 }));
+    }
+    ({ code, ttl } = await generateSteamGuardCode({ secretBytes, period }));
+  } else if (algorithm === "SHA1") {
+    ({ code, ttl } = await generateTotp({
+      secret,
+      digits: account.digits ?? 6,
+      period,
+    }));
+  } else {
+    return noStore(NextResponse.json({ error: "unsupported_algorithm" }, { status: 400 }));
+  }
+
+  const { data: consumedRows, error: consumeError } = await supabase.rpc("consume_share_token", {
+    p_token: token,
+  });
+  if (consumeError) {
+    return noStore(
+      NextResponse.json({ error: "db_error", details: consumeError.message }, { status: 500 }),
+    );
+  }
+  const consumedAccountId =
+    Array.isArray(consumedRows) && consumedRows.length > 0
+      ? (consumedRows[0] as { account_id?: string }).account_id ?? null
+      : null;
+  if (!consumedAccountId) return noStore(NextResponse.json({ error: "gone" }, { status: 410 }));
+
+  return noStore(
+    NextResponse.json({
+      account: { id: accountId, label: account.label, issuer: account.issuer },
+      code,
+      ttl,
+    }),
+  );
+}

@@ -18,6 +18,9 @@ export function AccountRow({ account, codesEnabled }: { account: Account; codesE
   const [code, setCode] = useState<string | null>(null);
   const [ttl, setTtl] = useState<number | null>(null);
   const [busy, setBusy] = useState(false);
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareError, setShareError] = useState<string | null>(null);
   const inFlightRef = useRef(false);
   const rowRef = useRef<HTMLTableRowElement | null>(null);
   const [isVisible, setIsVisible] = useState(false);
@@ -32,6 +35,34 @@ export function AccountRow({ account, codesEnabled }: { account: Account; codesE
     }
     return parts.join(" · ");
   }, [account.algorithm, account.digits, account.issuer, account.period]);
+
+  async function createShareLink() {
+    setShareBusy(true);
+    setShareUrl(null);
+    setShareError(null);
+    try {
+      const res = await fetch("/api/share", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ accountId: account.id }),
+      });
+      const data = (await res.json()) as { url?: string; error?: string; details?: string };
+      if (!res.ok) throw new Error(data.error ?? "share_failed");
+      const url = typeof data.url === "string" ? data.url : "";
+      if (!url) throw new Error("share_failed");
+      const absolute = `${window.location.origin}${url}`;
+      setShareUrl(absolute);
+      try {
+        await navigator.clipboard.writeText(absolute);
+      } catch {
+        // ignore
+      }
+    } catch (e) {
+      setShareError(e instanceof Error ? e.message : "share_failed");
+    } finally {
+      setShareBusy(false);
+    }
+  }
 
   async function refreshCode() {
     if (inFlightRef.current) return;
@@ -113,6 +144,21 @@ export function AccountRow({ account, codesEnabled }: { account: Account; codesE
       <td className="p-3 align-top">
         <div className="font-medium">{account.label}</div>
         <div className="mt-1 text-xs text-muted-foreground">{subtitle}</div>
+        {shareUrl ? (
+          <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+            <a href={shareUrl} target="_blank" rel="noreferrer" className="tv-link">
+              分享链接（一次性）
+            </a>
+            <button
+              type="button"
+              className="tv-btn-sm tv-btn-outline"
+              onClick={() => void navigator.clipboard.writeText(shareUrl).catch(() => {})}
+            >
+              复制
+            </button>
+          </div>
+        ) : null}
+        {shareError ? <div className="mt-2 text-xs text-destructive">分享失败：{shareError}</div> : null}
       </td>
       <td className="p-3 align-top">
         <div className="flex items-center gap-2">
@@ -134,6 +180,14 @@ export function AccountRow({ account, codesEnabled }: { account: Account; codesE
       </td>
       <td className="p-3 align-top text-right">
         <div className="flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={createShareLink}
+            disabled={busy || shareBusy}
+            className="tv-btn-sm tv-btn-outline"
+          >
+            {shareBusy ? "生成中…" : "分享"}
+          </button>
           <Link
             href={`/accounts/${account.id}/edit`}
             className="tv-btn-sm tv-btn-outline"

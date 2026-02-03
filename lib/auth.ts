@@ -4,6 +4,8 @@ import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
 import { base64urlToBytes, bytesToBase64url, bytesToUtf8, utf8ToBytes } from "@/lib/base64url";
 import { env } from "@/lib/env";
+import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { sha256Hex } from "@/lib/crypto";
 
 const SESSION_COOKIE_NAME = "tv_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7d
@@ -26,6 +28,10 @@ export type Session = {
   iat: number;
   exp: number;
 };
+
+export type ApiAuth =
+  | { kind: "session"; session: Session }
+  | { kind: "api_key"; apiKeyId: string };
 
 function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
@@ -90,12 +96,47 @@ export async function readSessionFromCookies(): Promise<Session | null> {
   return ok ? session : null;
 }
 
-export async function requireApiAuth(): Promise<Session> {
-  const session = await readSessionFromCookies();
-  if (!session) {
-    throw new Error("UNAUTHORIZED");
+function readBearerToken(req: Request): string | null {
+  const auth = req.headers.get("authorization");
+  if (!auth) return null;
+  const m = auth.match(/^Bearer\s+(.+)$/i);
+  const token = m?.[1]?.trim() ?? "";
+  return token.length > 0 ? token : null;
+}
+
+async function tryApiKeyAuth(req: Request): Promise<ApiAuth | null> {
+  const token = readBearerToken(req);
+  if (!token) return null;
+  const tokenHash = await sha256Hex(token);
+  const supabase = getSupabaseAdmin();
+  const { data, error } = await supabase
+    .from("api_keys")
+    .select("id,revoked_at")
+    .eq("token_hash", tokenHash)
+    .maybeSingle();
+
+  if (error || !data || data.revoked_at) return null;
+  void (async () => {
+    try {
+      await supabase
+        .from("api_keys")
+        .update({ last_used_at: new Date().toISOString() })
+        .eq("id", data.id);
+    } catch {
+      // ignore
+    }
+  })();
+  return { kind: "api_key", apiKeyId: data.id as string };
+}
+
+export async function requireApiAuth(req?: Request): Promise<ApiAuth> {
+  if (req) {
+    const apiKeyAuth = await tryApiKeyAuth(req);
+    if (apiKeyAuth) return apiKeyAuth;
   }
-  return session;
+  const session = await readSessionFromCookies();
+  if (!session) throw new Error("UNAUTHORIZED");
+  return { kind: "session", session };
 }
 
 export function unauthorizedJson(): NextResponse {

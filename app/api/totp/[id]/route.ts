@@ -5,9 +5,9 @@ import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { base64urlToBytes } from "@/lib/base64url";
 import { generateSteamGuardCode, generateTotp } from "@/lib/totp";
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    await requireApiAuth();
+    await requireApiAuth(req);
   } catch {
     return unauthorizedJson();
   }

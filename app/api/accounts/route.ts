@@ -34,9 +34,9 @@ function asOptionalInt(value: unknown): number | undefined {
   return undefined;
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    await requireApiAuth();
+    await requireApiAuth(req);
   } catch {
     return unauthorizedJson();
   }
@@ -57,7 +57,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
   try {
-    await requireApiAuth();
+    await requireApiAuth(req);
   } catch {
     return unauthorizedJson();
   }

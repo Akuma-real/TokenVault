@@ -36,9 +36,9 @@ function asOptionalInt(value: unknown): number | undefined {
   return undefined;
 }
 
-export async function GET(_req: Request, { params }: Params) {
+export async function GET(req: Request, { params }: Params) {
   try {
-    await requireApiAuth();
+    await requireApiAuth(req);
   } catch {
     return unauthorizedJson();
   }
@@ -63,7 +63,7 @@ export async function GET(_req: Request, { params }: Params) {
 
 export async function PATCH(req: Request, { params }: Params) {
   try {
-    await requireApiAuth();
+    await requireApiAuth(req);
   } catch {
     return unauthorizedJson();
   }
@@ -199,7 +199,7 @@ export async function PATCH(req: Request, { params }: Params) {
 
 export async function DELETE(req: Request, { params }: Params) {
   try {
-    await requireApiAuth();
+    await requireApiAuth(req);
   } catch {
     return unauthorizedJson();
   }
