@@ -24,11 +24,12 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
     ? (rows[0] as { account_id?: string; expires_at?: string; consumed_at?: string | null; is_valid?: boolean })
     : null;
 
-  const expired = !share?.is_valid;
+  const isValid = !!share?.is_valid;
+  const isConsumed = !!share?.consumed_at;
 
   let label = "账户";
   let issuer: string | null = null;
-  if (!expired && share?.account_id) {
+  if (isValid && share?.account_id) {
     const { data: account } = await supabase
       .from("accounts")
       .select("label,issuer")
@@ -45,7 +46,7 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
           <div>
             <h1 className="text-xl font-semibold">一次性分享</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              {expired ? "链接已失效" : "点击按钮后才会消费（严格一次性）"}
+              {!isValid ? "链接已失效" : "点击按钮后才会消费（严格一次性）"}
             </p>
           </div>
           <Link href="/" className="tv-link">
@@ -57,9 +58,9 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
           <div className="mt-6 rounded-xl border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
             加载失败：{error.message}
           </div>
-        ) : expired ? (
+        ) : !isValid ? (
           <div className="mt-6 rounded-xl border bg-muted/20 p-4 text-sm text-muted-foreground">
-            该链接已被使用或已过期。
+            {isConsumed ? "该链接已被使用。" : "该链接已过期或不存在。"}
           </div>
         ) : (
           <>

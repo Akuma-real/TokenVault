@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { base64urlToBytes } from "@/lib/base64url";
 import { generateSteamGuardCode, generateTotp } from "@/lib/totp";
 import { sha256Hex } from "@/lib/crypto";
+import { decryptSharePayload } from "@/lib/share";
 
 async function readBody(req: Request): Promise<Record<string, unknown>> {
   const contentType = req.headers.get("content-type") ?? "";
@@ -36,6 +37,10 @@ export async function POST(req: Request) {
 
   const supabase = getSupabaseAdmin();
   const tokenHash = await sha256Hex(token);
+  const forwardedFor = req.headers.get("x-forwarded-for");
+  const ip = forwardedFor ? forwardedFor.split(",")[0]?.trim() ?? null : null;
+  const userAgent = req.headers.get("user-agent");
+
   const { data: peekRows, error: peekError } = await supabase.rpc("peek_share_token", {
     p_token_hash: tokenHash,
   });
@@ -98,24 +103,39 @@ export async function POST(req: Request) {
   }
 
   const { data: consumedRows, error: consumeError } = await supabase.rpc("consume_share_token", {
-    p_token: token,
+    p_token_hash: tokenHash,
+    p_ip: ip,
+    p_user_agent: userAgent,
   });
   if (consumeError) {
     return noStore(
       NextResponse.json({ error: "db_error", details: consumeError.message }, { status: 500 }),
     );
   }
-  const consumedAccountId =
+  const consumed =
     Array.isArray(consumedRows) && consumedRows.length > 0
-      ? (consumedRows[0] as { account_id?: string }).account_id ?? null
+      ? (consumedRows[0] as { account_id?: string; payload_ciphertext?: string; consumed_at?: string | null })
       : null;
+
+  const consumedAccountId = consumed?.account_id ?? null;
   if (!consumedAccountId) return noStore(NextResponse.json({ error: "gone" }, { status: 410 }));
+
+  const payload = await decryptSharePayload(consumed?.payload_ciphertext ?? "");
+  if (
+    payload?.accountId &&
+    payload.accountId.toLowerCase() !== accountId.toLowerCase()
+  ) {
+    return noStore(NextResponse.json({ error: "invalid_payload" }, { status: 500 }));
+  }
 
   return noStore(
     NextResponse.json({
-      account: { id: accountId, label: account.label, issuer: account.issuer },
-      code,
-      ttl,
+      payload: {
+        account: { id: accountId, label: account.label, issuer: account.issuer },
+        code,
+        ttl,
+      },
+      consumedAt: consumed?.consumed_at ?? null,
     }),
   );
 }

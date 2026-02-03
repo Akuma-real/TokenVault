@@ -21,6 +21,7 @@ export function AccountRow({ account, codesEnabled }: { account: Account; codesE
   const [shareBusy, setShareBusy] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareError, setShareError] = useState<string | null>(null);
+  const [shareTtlSeconds, setShareTtlSeconds] = useState<number>(300);
   const inFlightRef = useRef(false);
   const rowRef = useRef<HTMLTableRowElement | null>(null);
   const [isVisible, setIsVisible] = useState(false);
@@ -44,7 +45,7 @@ export function AccountRow({ account, codesEnabled }: { account: Account; codesE
       const res = await fetch("/api/share", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ accountId: account.id }),
+        body: JSON.stringify({ accountId: account.id, ttlSeconds: shareTtlSeconds }),
       });
       const data = (await res.json()) as { url?: string; error?: string; details?: string };
       if (!res.ok) throw new Error(data.error ?? "share_failed");
@@ -180,6 +181,20 @@ export function AccountRow({ account, codesEnabled }: { account: Account; codesE
       </td>
       <td className="p-3 align-top text-right">
         <div className="flex justify-end gap-2">
+          <select
+            value={shareTtlSeconds}
+            onChange={(e) => setShareTtlSeconds(Number(e.target.value))}
+            className="tv-select h-9 w-[7.5rem]"
+            disabled={busy || shareBusy}
+            aria-label="分享有效期"
+          >
+            <option value={30}>30s</option>
+            <option value={60}>60s</option>
+            <option value={300}>300s</option>
+            <option value={600}>600s</option>
+            <option value={1800}>1800s</option>
+            <option value={3600}>3600s</option>
+          </select>
           <button
             type="button"
             onClick={createShareLink}

@@ -1,6 +1,8 @@
 -- TokenVault (minimal)
--- Safe to run multiple times (uses IF NOT EXISTS where possible).
--- NOTE: run this in Supabase SQL editor.
+-- Safe to run multiple times (idempotent & non-destructive).
+-- NOTE: run this in Supabase SQL editor or via `psql -f`.
+
+begin;
 
 create extension if not exists pgcrypto;
 
@@ -56,40 +58,50 @@ create table if not exists public.share_tokens (
   id uuid primary key default gen_random_uuid(),
   account_id uuid not null references public.accounts(id) on delete cascade,
   token_hash text not null unique,
+  payload_ciphertext text not null default '',
   created_at timestamptz not null default now(),
   expires_at timestamptz not null,
-  consumed_at timestamptz
+  consumed_at timestamptz,
+  consumed_by_ip text,
+  consumed_user_agent text
 );
+
+-- Backward-compatible upgrades (in case the table existed before new columns were added).
+alter table if exists public.share_tokens
+  add column if not exists payload_ciphertext text not null default '';
+
+alter table if exists public.share_tokens
+  add column if not exists consumed_by_ip text;
+
+alter table if exists public.share_tokens
+  add column if not exists consumed_user_agent text;
 
 create index if not exists share_tokens_account_id_idx on public.share_tokens(account_id);
 create index if not exists share_tokens_expires_at_idx on public.share_tokens(expires_at);
 
 -- Atomic consume for one-time share token. Returns 1 row on success, 0 rows when expired/consumed/invalid.
-create or replace function public.consume_share_token(p_token text)
-returns table(account_id uuid)
-language plpgsql
+-- Drop legacy signature (create or replace will not remove it).
+drop function if exists public.consume_share_token(text);
+
+create or replace function public.consume_share_token(
+  p_token_hash text,
+  p_ip text default null,
+  p_user_agent text default null
+)
+returns table(account_id uuid, payload_ciphertext text, expires_at timestamptz, consumed_at timestamptz)
+language sql
 security definer
-set search_path = public, extensions
+set search_path = public
 as $$
-declare
-  v_hash text;
-  v_token text;
-begin
-  if p_token is null or length(trim(p_token)) = 0 then
-    return;
-  end if;
-
-  v_token := trim(p_token);
-  v_hash := encode(digest(convert_to(v_token, 'utf8'), 'sha256'), 'hex');
-
-  return query
-    update public.share_tokens
-    set consumed_at = now()
-    where token_hash = v_hash
-      and consumed_at is null
-      and expires_at > now()
-    returning public.share_tokens.account_id;
-end;
+  update public.share_tokens st
+  set
+    consumed_at = now(),
+    consumed_by_ip = coalesce(p_ip, st.consumed_by_ip),
+    consumed_user_agent = coalesce(p_user_agent, st.consumed_user_agent)
+  where st.token_hash = p_token_hash
+    and st.consumed_at is null
+    and st.expires_at > now()
+  returning st.account_id, st.payload_ciphertext, st.expires_at, st.consumed_at;
 $$;
 
 -- Preview (non-consuming) lookup with DB-based validity check (no client-side clocks).
@@ -107,3 +119,5 @@ as $$
   from public.share_tokens st
   where st.token_hash = p_token_hash;
 $$;
+
+commit;

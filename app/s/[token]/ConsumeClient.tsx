@@ -3,9 +3,12 @@
 import { useEffect, useRef, useState } from "react";
 
 type ConsumeOk = {
-  account: { id: string; label: string; issuer: string | null };
-  code: string;
-  ttl: number;
+  payload: {
+    account: { id: string; label: string; issuer: string | null };
+    code: string;
+    ttl: number;
+  };
+  consumedAt: string | null;
 };
 
 export function ConsumeClient(props: { token: string; initialLabel: string }) {
@@ -49,8 +52,9 @@ export function ConsumeClient(props: { token: string; initialLabel: string }) {
       const data = (await res.json()) as Partial<ConsumeOk> & { error?: string; details?: string };
       if (!res.ok) throw new Error(data.error ?? "consume_failed");
 
-      setCode(typeof data.code === "string" ? data.code : null);
-      setTtl(typeof data.ttl === "number" ? data.ttl : null);
+      const payload = data.payload;
+      setCode(typeof payload?.code === "string" ? payload.code : null);
+      setTtl(typeof payload?.ttl === "number" ? payload.ttl : null);
     } catch (e) {
       setError(e instanceof Error ? e.message : "consume_failed");
     } finally {
@@ -90,4 +94,3 @@ export function ConsumeClient(props: { token: string; initialLabel: string }) {
     </div>
   );
 }
-
