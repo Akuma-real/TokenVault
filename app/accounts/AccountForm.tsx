@@ -85,7 +85,7 @@ export function AccountForm(props: {
               setPeriod((p) => (p === 30 ? 30 : p));
             }
           }}
-          className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+          className="tv-select"
         >
           <option value="SHA1">标准 TOTP（数字）</option>
           <option value="STEAM">Steam Guard（5 位字符）</option>
@@ -101,7 +101,7 @@ export function AccountForm(props: {
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           required
-          className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+          className="tv-input"
         />
       </div>
 
@@ -113,7 +113,7 @@ export function AccountForm(props: {
           id="issuer"
           value={issuer}
           onChange={(e) => setIssuer(e.target.value)}
-          className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+          className="tv-input"
         />
       </div>
 
@@ -127,7 +127,7 @@ export function AccountForm(props: {
           value={secret}
           onChange={(e) => setSecret(e.target.value)}
           required={isCreate}
-          className="h-10 w-full rounded-md border bg-background px-3 font-mono text-sm outline-none focus:ring-2 focus:ring-ring"
+          className="tv-input font-mono"
           placeholder={algorithm === "STEAM" ? "shared_secret（Base64）或 Base32" : "JBSWY3DPEHPK3PXP"}
         />
         <p className="text-xs text-muted-foreground">
@@ -137,11 +137,11 @@ export function AccountForm(props: {
       </div>
 
       {algorithm === "STEAM" ? (
-        <div className="rounded-md border bg-muted/30 p-3 text-sm text-muted-foreground">
+        <div className="rounded-xl border bg-muted/20 p-3 text-sm text-muted-foreground">
           Steam Guard 参数固定：`period=30s`，`code=5 位字符`。
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="space-y-2">
             <label className="text-sm font-medium" htmlFor="digits">
               Digits
@@ -150,7 +150,7 @@ export function AccountForm(props: {
               id="digits"
               value={String(digits)}
               onChange={(e) => setDigits(Number(e.target.value))}
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className="tv-select"
             >
               <option value="6">6</option>
               <option value="8">8</option>
@@ -168,19 +168,19 @@ export function AccountForm(props: {
               max={120}
               value={period}
               onChange={(e) => setPeriod(Number(e.target.value))}
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className="tv-input"
             />
           </div>
         </div>
       )}
 
-      {error ? <div className="rounded-md border border-destructive p-3 text-sm text-destructive">{error}</div> : null}
+      {error ? <div className="rounded-xl border border-destructive bg-destructive/10 p-3 text-sm text-destructive">{error}</div> : null}
 
       <div className="flex items-center gap-3">
         <button
           type="submit"
           disabled={busy}
-          className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-60"
+          className="tv-btn tv-btn-primary"
         >
           {busy ? "处理中…" : submitLabel}
         </button>
@@ -188,7 +188,7 @@ export function AccountForm(props: {
           type="button"
           disabled={busy}
           onClick={() => router.push("/accounts")}
-          className="inline-flex h-10 items-center justify-center rounded-md border bg-background px-4 text-sm hover:bg-muted disabled:opacity-60"
+          className="tv-btn tv-btn-outline"
         >
           取消
         </button>

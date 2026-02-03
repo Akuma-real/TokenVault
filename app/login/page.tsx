@@ -14,12 +14,12 @@ export default async function LoginPage({
   const showError = sp.e === "1";
 
   return (
-    <div className="mx-auto flex min-h-screen w-full max-w-md flex-col justify-center px-6 py-12">
-      <div className="rounded-2xl border bg-card p-6 shadow-sm">
+    <div className="tv-container flex min-h-[100svh] max-w-md flex-col justify-center py-12">
+      <div className="tv-card">
         <h1 className="text-xl font-semibold">TokenVault 登录</h1>
         <p className="mt-2 text-sm text-muted-foreground">使用 ADMIN_PASSWORD 登录（会话写入 HttpOnly Cookie）。</p>
         {showError ? (
-          <div className="mt-4 rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+          <div className="mt-4 rounded-xl border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
             密码错误
           </div>
         ) : null}
@@ -34,13 +34,13 @@ export default async function LoginPage({
               name="password"
               type="password"
               required
-              className="h-10 w-full rounded-md border bg-background px-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+              className="tv-input"
               autoComplete="current-password"
             />
           </div>
           <button
             type="submit"
-            className="inline-flex h-10 w-full items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
+            className="tv-btn tv-btn-primary w-full"
           >
             登录
           </button>

@@ -18,32 +18,32 @@ export function AccountsClient(props: { accounts: Account[]; errorMessage: strin
   const toggleLabel = useMemo(() => (codesEnabled ? "隐藏全部" : "显示全部"), [codesEnabled]);
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-6 py-10">
-      <div className="flex items-center justify-between">
+    <div className="tv-container max-w-4xl py-10">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold">账户</h1>
           <p className="mt-2 text-sm text-muted-foreground">
             默认不展示 code；开启后仅对可见行自动取码与刷新。
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3 sm:justify-end">
           <button
             type="button"
             onClick={() => setCodesEnabled((v) => !v)}
-            className="inline-flex h-10 items-center justify-center rounded-md border bg-background px-4 text-sm hover:bg-muted"
+            className="tv-btn tv-btn-outline"
           >
             {toggleLabel}
           </button>
           <Link
             href="/accounts/new"
-            className="inline-flex h-10 items-center justify-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:opacity-90"
+            className="tv-btn tv-btn-primary"
           >
             新增
           </Link>
           <form method="post" action="/api/auth/logout">
             <button
               type="submit"
-              className="inline-flex h-10 items-center justify-center rounded-md border bg-background px-4 text-sm hover:bg-muted"
+              className="tv-btn tv-btn-outline"
             >
               退出
             </button>
@@ -51,9 +51,9 @@ export function AccountsClient(props: { accounts: Account[]; errorMessage: strin
         </div>
       </div>
 
-      <div className="mt-8 overflow-hidden rounded-xl border">
+      <div className="tv-table-wrap mt-8">
         <table className="w-full table-fixed">
-          <thead className="bg-muted/40 text-left text-xs text-muted-foreground">
+          <thead className="tv-thead">
             <tr>
               <th className="p-3 font-medium">账户</th>
               <th className="p-3 font-medium">TOTP</th>
@@ -84,4 +84,3 @@ export function AccountsClient(props: { accounts: Account[]; errorMessage: strin
     </div>
   );
 }
-

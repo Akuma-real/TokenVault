@@ -109,7 +109,7 @@ export function AccountRow({ account, codesEnabled }: { account: Account; codesE
   }
 
   return (
-    <tr ref={rowRef} className="border-b last:border-b-0">
+    <tr ref={rowRef} className="border-b transition-colors hover:bg-muted/15 last:border-b-0">
       <td className="p-3 align-top">
         <div className="font-medium">{account.label}</div>
         <div className="mt-1 text-xs text-muted-foreground">{subtitle}</div>
@@ -120,7 +120,7 @@ export function AccountRow({ account, codesEnabled }: { account: Account; codesE
             type="button"
             onClick={refreshCode}
             disabled={busy || !codesEnabled || !isVisible}
-            className="inline-flex h-9 items-center justify-center rounded-md border bg-background px-3 text-sm hover:bg-muted disabled:opacity-60"
+            className="tv-btn-sm tv-btn-outline"
           >
             取码
           </button>
@@ -136,7 +136,7 @@ export function AccountRow({ account, codesEnabled }: { account: Account; codesE
         <div className="flex justify-end gap-2">
           <Link
             href={`/accounts/${account.id}/edit`}
-            className="inline-flex h-9 items-center justify-center rounded-md border bg-background px-3 text-sm hover:bg-muted"
+            className="tv-btn-sm tv-btn-outline"
           >
             编辑
           </Link>
@@ -144,7 +144,7 @@ export function AccountRow({ account, codesEnabled }: { account: Account; codesE
             type="button"
             onClick={deleteAccount}
             disabled={busy}
-            className="inline-flex h-9 items-center justify-center rounded-md border border-destructive bg-background px-3 text-sm text-destructive hover:bg-destructive/10 disabled:opacity-60"
+            className="tv-btn-sm tv-btn-destructive"
           >
             删除
           </button>
