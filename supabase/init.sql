@@ -69,7 +69,7 @@ create or replace function public.consume_share_token(p_token text)
 returns table(account_id uuid)
 language plpgsql
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
   v_hash text;
@@ -80,7 +80,7 @@ begin
   end if;
 
   v_token := trim(p_token);
-  v_hash := encode(digest(v_token, 'sha256'), 'hex');
+  v_hash := encode(digest(convert_to(v_token, 'utf8'), 'sha256'), 'hex');
 
   return query
     update public.share_tokens
