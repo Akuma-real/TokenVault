@@ -48,6 +48,25 @@
 
 :root {
   --radius: 0.75rem;
+  --font-geist-sans:
+    "Inter",
+    "Noto Sans SC",
+    "PingFang SC",
+    "Microsoft YaHei",
+    ui-sans-serif,
+    system-ui,
+    -apple-system,
+    "Segoe UI",
+    sans-serif;
+  --font-geist-mono:
+    "JetBrains Mono",
+    "SFMono-Regular",
+    Menlo,
+    Monaco,
+    Consolas,
+    "Liberation Mono",
+    "Courier New",
+    monospace;
 
   /* Light */
   --background: oklch(0.99 0.01 270);
