@@ -2,6 +2,11 @@
 
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 type AccountFormInitial = {
   label: string;
@@ -66,132 +71,128 @@ export function AccountForm(props: {
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <label className="text-sm font-medium" htmlFor="algorithm">
-          类型
-        </label>
-        <select
-          id="algorithm"
-          value={algorithm}
-          onChange={(e) => {
-            const next = e.target.value as AccountFormInitial["algorithm"];
-            setAlgorithm(next);
-            if (next === "STEAM") {
-              setDigits(5);
-              setPeriod(30);
-            } else {
-              setDigits((d) => (d === 5 ? 6 : d));
-              setPeriod((p) => (p === 30 ? 30 : p));
-            }
-          }}
-          className="tv-select"
-        >
-          <option value="SHA1">标准 TOTP（数字）</option>
-          <option value="STEAM">Steam Guard（5 位字符）</option>
-        </select>
+    <form onSubmit={onSubmit} className="space-y-6">
+      <div className="flex flex-wrap items-center gap-2">
+        <Badge variant="outline">{isCreate ? "Create" : "Edit"}</Badge>
+        <Badge variant="outline">{algorithm === "STEAM" ? "Steam Guard" : "Standard TOTP"}</Badge>
+        <Badge variant="outline">{isCreate ? "初始化" : "参数更新"}</Badge>
       </div>
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium" htmlFor="label">
-          名称（label）
-        </label>
-        <input
-          id="label"
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          required
-          className="tv-input"
-        />
+      <div className="rounded-2xl border border-border/65 bg-muted/20 p-4">
+        <p className="text-xs uppercase tracking-[0.18em] text-muted-foreground">核心参数</p>
+        <div className="mt-3 space-y-2">
+          <Label htmlFor="algorithm">类型</Label>
+          <Select
+            value={algorithm}
+            onValueChange={(value) => {
+              const next = value as AccountFormInitial["algorithm"];
+              setAlgorithm(next);
+              if (next === "STEAM") {
+                setDigits(5);
+                setPeriod(30);
+              } else {
+                setDigits((prevDigits) => (prevDigits === 5 ? 6 : prevDigits));
+                setPeriod((prevPeriod) => (prevPeriod === 30 ? 30 : prevPeriod));
+              }
+            }}
+          >
+            <SelectTrigger id="algorithm">
+              <SelectValue placeholder="选择类型" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="SHA1">标准 TOTP（数字）</SelectItem>
+              <SelectItem value="STEAM">Steam Guard（5 位字符）</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium" htmlFor="issuer">
-          发行方（issuer，可选）
-        </label>
-        <input
-          id="issuer"
-          value={issuer}
-          onChange={(e) => setIssuer(e.target.value)}
-          className="tv-input"
-        />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label htmlFor="label">名称（label）</Label>
+          <Input
+            id="label"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            required
+            placeholder="例如：GitHub / Google"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label htmlFor="issuer">发行方（issuer，可选）</Label>
+          <Input
+            id="issuer"
+            value={issuer}
+            onChange={(e) => setIssuer(e.target.value)}
+            placeholder="例如：GitHub"
+          />
+        </div>
       </div>
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium" htmlFor="secret">
-          Secret（{algorithm === "STEAM" ? "Base64 或 Base32" : "Base32"}
-          {isCreate ? "，必填" : "，留空表示不修改"}）
-        </label>
-        <input
-          id="secret"
-          value={secret}
-          onChange={(e) => setSecret(e.target.value)}
-          required={isCreate}
-          className="tv-input font-mono"
-          placeholder={algorithm === "STEAM" ? "shared_secret（Base64）或 Base32" : "JBSWY3DPEHPK3PXP"}
-        />
-        <p className="text-xs text-muted-foreground">
-          支持空格/短横线；会自动规范化并加密存库。
-          {algorithm === "STEAM" ? "（Steam 会固定为 30s/5 位字符码）" : null}
-        </p>
+      <div className="rounded-2xl border border-border/65 bg-card/70 p-4 sm:p-5">
+        <div className="space-y-2">
+          <Label htmlFor="secret">
+            Secret（{algorithm === "STEAM" ? "Base64 或 Base32" : "Base32"}
+            {isCreate ? "，必填" : "，留空表示不修改"}）
+          </Label>
+          <Input
+            id="secret"
+            value={secret}
+            onChange={(e) => setSecret(e.target.value)}
+            required={isCreate}
+            className="font-mono tracking-wide"
+            placeholder={algorithm === "STEAM" ? "shared_secret（Base64）或 Base32" : "JBSWY3DPEHPK3PXP"}
+          />
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            支持空格/短横线，提交后会自动规范化并加密存库。
+            {algorithm === "STEAM" ? " Steam 模式固定为 30 秒周期和 5 位字符码。" : null}
+          </p>
+        </div>
       </div>
 
       {algorithm === "STEAM" ? (
-        <div className="rounded-xl border bg-muted/20 p-3 text-sm text-muted-foreground">
+        <div className="tv-panel-note">
           Steam Guard 参数固定：`period=30s`，`code=5 位字符`。
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-4 rounded-2xl border border-border/60 bg-muted/16 p-4 sm:grid-cols-2">
           <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor="digits">
-              Digits
-            </label>
-            <select
-              id="digits"
-              value={String(digits)}
-              onChange={(e) => setDigits(Number(e.target.value))}
-              className="tv-select"
-            >
-              <option value="6">6</option>
-              <option value="8">8</option>
-            </select>
+            <Label htmlFor="digits">Digits</Label>
+            <Select value={String(digits)} onValueChange={(value) => setDigits(Number(value))}>
+              <SelectTrigger id="digits">
+                <SelectValue placeholder="选择位数" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="6">6</SelectItem>
+                <SelectItem value="8">8</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm font-medium" htmlFor="period">
-              Period（秒）
-            </label>
-            <input
+            <Label htmlFor="period">Period（秒）</Label>
+            <Input
               id="period"
               type="number"
               min={5}
               max={120}
               value={period}
               onChange={(e) => setPeriod(Number(e.target.value))}
-              className="tv-input"
             />
           </div>
         </div>
       )}
 
-      {error ? <div className="rounded-xl border border-destructive bg-destructive/10 p-3 text-sm text-destructive">{error}</div> : null}
+      {error ? <div className="rounded-2xl border border-destructive/70 bg-destructive/10 p-3 text-sm text-destructive">{error}</div> : null}
 
-      <div className="flex items-center gap-3">
-        <button
-          type="submit"
-          disabled={busy}
-          className="tv-btn tv-btn-primary"
-        >
+      <div className="flex items-center gap-3 pt-1">
+        <Button type="submit" disabled={busy}>
           {busy ? "处理中…" : submitLabel}
-        </button>
-        <button
-          type="button"
-          disabled={busy}
-          onClick={() => router.push("/accounts")}
-          className="tv-btn tv-btn-outline"
-        >
+        </Button>
+        <Button type="button" disabled={busy} onClick={() => router.push("/accounts")} variant="outline">
           取消
-        </button>
+        </Button>
       </div>
     </form>
   );
