@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { readSessionFromCookies } from "@/lib/auth";
-import { getSupabaseAdmin } from "@/lib/supabase/server";
+import { getAccountForEdit } from "@/lib/account-repo";
 import { AccountForm } from "../../AccountForm";
 
 export const dynamic = "force-dynamic";
@@ -11,12 +11,7 @@ export default async function EditAccountPage({ params }: { params: Promise<{ id
   if (!session) redirect("/login");
 
   const { id } = await params;
-  const supabase = getSupabaseAdmin();
-  const { data, error } = await supabase
-    .from("accounts")
-    .select("id,label,issuer,digits,period,algorithm")
-    .eq("id", id)
-    .single();
+  const { data, error } = await getAccountForEdit(id);
 
   if (error || !data) notFound();
 
