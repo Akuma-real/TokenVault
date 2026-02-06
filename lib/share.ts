@@ -1,20 +1,12 @@
 import "server-only";
 
 import { decryptSecret, encryptSecret } from "@/lib/secret";
+import { asOptionalInt } from "@/lib/request";
 
 export type SharePayloadV1 = {
   v: 1;
   accountId: string;
 };
-
-function asOptionalInt(value: unknown): number | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) return Math.floor(value);
-  if (typeof value === "string" && value.trim().length > 0) {
-    const n = Number(value);
-    return Number.isFinite(n) ? Math.floor(n) : undefined;
-  }
-  return undefined;
-}
 
 export function clampTtlSeconds(ttlSeconds: number): number {
   if (!Number.isFinite(ttlSeconds)) return 300;
@@ -44,4 +36,3 @@ export async function decryptSharePayload(ciphertext: string): Promise<SharePayl
     return null;
   }
 }
-

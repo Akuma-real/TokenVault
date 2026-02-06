@@ -5,34 +5,7 @@ import { encryptSecret } from "@/lib/secret";
 import { base64urlToBytes, bytesToBase64url, normalizeToBase64url } from "@/lib/base64url";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { redirect303 } from "@/lib/http";
-
-async function readBody(req: Request): Promise<Record<string, unknown>> {
-  const contentType = req.headers.get("content-type") ?? "";
-  if (contentType.includes("application/json")) {
-    try {
-      return (await req.json()) as Record<string, unknown>;
-    } catch {
-      return {};
-    }
-  }
-  try {
-    const form = await req.formData();
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of form.entries()) out[k] = v;
-    return out;
-  } catch {
-    return {};
-  }
-}
-
-function asOptionalInt(value: unknown): number | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) return Math.floor(value);
-  if (typeof value === "string" && value.trim().length > 0) {
-    const n = Number(value);
-    return Number.isFinite(n) ? Math.floor(n) : undefined;
-  }
-  return undefined;
-}
+import { asOptionalInt, readRequestBody } from "@/lib/request";
 
 export async function GET(req: Request) {
   try {
@@ -62,7 +35,7 @@ export async function POST(req: Request) {
     return unauthorizedJson();
   }
 
-  const body = await readBody(req);
+  const body = await readRequestBody(req);
   const label = typeof body.label === "string" ? body.label.trim() : "";
   const issuer = typeof body.issuer === "string" ? body.issuer.trim() : null;
   const rawSecret = typeof body.secret === "string" ? body.secret : "";

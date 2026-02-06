@@ -3,25 +3,7 @@ import { requireApiAuth, unauthorizedJson } from "@/lib/auth";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { randomToken, sha256Hex } from "@/lib/crypto";
 import { encryptSharePayload, parseTtlSeconds } from "@/lib/share";
-
-async function readBody(req: Request): Promise<Record<string, unknown>> {
-  const contentType = req.headers.get("content-type") ?? "";
-  if (contentType.includes("application/json")) {
-    try {
-      return (await req.json()) as Record<string, unknown>;
-    } catch {
-      return {};
-    }
-  }
-  try {
-    const form = await req.formData();
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of form.entries()) out[k] = v;
-    return out;
-  } catch {
-    return {};
-  }
-}
+import { readRequestBody } from "@/lib/request";
 
 export async function POST(req: Request) {
   let auth;
@@ -35,7 +17,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "forbidden" }, { status: 403 });
   }
 
-  const body = await readBody(req);
+  const body = await readRequestBody(req);
   const accountId = typeof body.accountId === "string" ? body.accountId.trim() : "";
   if (!accountId) return NextResponse.json({ error: "accountId_required" }, { status: 400 });
 

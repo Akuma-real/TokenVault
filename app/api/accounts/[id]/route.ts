@@ -5,36 +5,9 @@ import { encryptSecret } from "@/lib/secret";
 import { base64urlToBytes, bytesToBase64url, normalizeToBase64url } from "@/lib/base64url";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { redirect303 } from "@/lib/http";
+import { asOptionalInt, readRequestBody } from "@/lib/request";
 
 type Params = { params: Promise<{ id: string }> };
-
-async function readBody(req: Request): Promise<Record<string, unknown>> {
-  const contentType = req.headers.get("content-type") ?? "";
-  if (contentType.includes("application/json")) {
-    try {
-      return (await req.json()) as Record<string, unknown>;
-    } catch {
-      return {};
-    }
-  }
-  try {
-    const form = await req.formData();
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of form.entries()) out[k] = v;
-    return out;
-  } catch {
-    return {};
-  }
-}
-
-function asOptionalInt(value: unknown): number | undefined {
-  if (typeof value === "number" && Number.isFinite(value)) return Math.floor(value);
-  if (typeof value === "string" && value.trim().length > 0) {
-    const n = Number(value);
-    return Number.isFinite(n) ? Math.floor(n) : undefined;
-  }
-  return undefined;
-}
 
 export async function GET(req: Request, { params }: Params) {
   try {
@@ -69,7 +42,7 @@ export async function PATCH(req: Request, { params }: Params) {
   }
 
   const { id } = await params;
-  const body = await readBody(req);
+  const body = await readRequestBody(req);
 
   const supabase = getSupabaseAdmin();
   const { data: existing, error: existingError } = await supabase
