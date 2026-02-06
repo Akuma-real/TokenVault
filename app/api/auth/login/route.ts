@@ -3,6 +3,7 @@ import { env } from "@/lib/env";
 import { setSessionCookie } from "@/lib/auth";
 import { utf8ToBytes } from "@/lib/base64url";
 import { redirect303 } from "@/lib/http";
+import { errorJson } from "@/lib/http-error";
 
 function constantTimeEqual(a: Uint8Array, b: Uint8Array): boolean {
   if (a.length !== b.length) return false;
@@ -41,7 +42,7 @@ export async function POST(req: Request) {
   if (!ok) {
     return wantsHtml
       ? redirect303("/login?e=1")
-      : NextResponse.json({ error: "invalid_password" }, { status: 401 });
+      : errorJson(401, "invalid_password");
   }
 
   const res = wantsHtml

@@ -6,6 +6,7 @@ import { base64urlToBytes, bytesToBase64url, bytesToUtf8, utf8ToBytes } from "@/
 import { env } from "@/lib/env";
 import { getSupabaseAdmin } from "@/lib/supabase/server";
 import { sha256Hex } from "@/lib/crypto";
+import { errorJson } from "@/lib/http-error";
 
 const SESSION_COOKIE_NAME = "tv_session";
 const SESSION_TTL_SECONDS = 60 * 60 * 24 * 7; // 7d
@@ -140,7 +141,7 @@ export async function requireApiAuth(req?: Request): Promise<ApiAuth> {
 }
 
 export function unauthorizedJson(): NextResponse {
-  return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  return errorJson(401, "unauthorized");
 }
 
 export function clearSessionCookie(res: NextResponse): void {
