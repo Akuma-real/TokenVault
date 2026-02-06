@@ -44,7 +44,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     } catch {
       return NextResponse.json({ error: "invalid_secret" }, { status: 500 });
     }
-    ({ code, ttl } = await generateSteamGuardCode({ secretBytes, period }));
+    ({ code, ttl } = await generateSteamGuardCode({ secretBytes, period, cacheKey: secret }));
   } else if (algorithm === "SHA1") {
     ({ code, ttl } = await generateTotp({
       secret,

@@ -7,6 +7,8 @@ type TotpParams = {
 };
 
 const STEAM_CHARS = "23456789BCDFGHJKMNPQRTVWXY";
+const HMAC_SHA1_KEY_CACHE_LIMIT = 512;
+const hmacSha1KeyCache = new Map<string, Promise<CryptoKey>>();
 
 function counterToBytes(counter: number): Uint8Array {
   const bytes = new Uint8Array(8);
@@ -33,31 +35,54 @@ function dynamicTruncate(hmac: Uint8Array): number {
   );
 }
 
-export async function generateTotp(params: TotpParams): Promise<{ code: string; ttl: number }> {
-  const digits = params.digits ?? 6;
-  const period = params.period ?? 30;
-  const secret = normalizeBase32Secret(params.secret);
-  const keyBytes = decodeBase32(secret);
-
-  const nowMs = Date.now();
-  const nowSec = Math.floor(nowMs / 1000);
-  const counter = Math.floor(nowSec / period);
-  const ttl = period - (nowSec % period);
-
-  const key = await crypto.subtle.importKey(
+function importHmacSha1Key(keyBytes: Uint8Array): Promise<CryptoKey> {
+  return crypto.subtle.importKey(
     "raw",
     keyBytes as unknown as BufferSource,
     { name: "HMAC", hash: "SHA-1" },
     false,
     ["sign"],
   );
+}
 
+function getCachedHmacSha1Key(cacheKey: string, readKeyBytes: () => Uint8Array): Promise<CryptoKey> {
+  const existing = hmacSha1KeyCache.get(cacheKey);
+  if (existing) return existing;
+
+  if (hmacSha1KeyCache.size >= HMAC_SHA1_KEY_CACHE_LIMIT) {
+    const oldest = hmacSha1KeyCache.keys().next().value;
+    if (oldest) hmacSha1KeyCache.delete(oldest);
+  }
+
+  const pending = importHmacSha1Key(readKeyBytes()).catch((error) => {
+    hmacSha1KeyCache.delete(cacheKey);
+    throw error;
+  });
+  hmacSha1KeyCache.set(cacheKey, pending);
+  return pending;
+}
+
+async function signCounterHmac(key: CryptoKey, counter: number): Promise<Uint8Array> {
   const mac = await crypto.subtle.sign(
     "HMAC",
     key,
     counterToBytes(counter) as unknown as BufferSource,
   );
-  const hmac = new Uint8Array(mac);
+  return new Uint8Array(mac);
+}
+
+export async function generateTotp(params: TotpParams): Promise<{ code: string; ttl: number }> {
+  const digits = params.digits ?? 6;
+  const period = params.period ?? 30;
+  const secret = normalizeBase32Secret(params.secret);
+  const key = await getCachedHmacSha1Key(`totp:${secret}`, () => decodeBase32(secret));
+
+  const nowMs = Date.now();
+  const nowSec = Math.floor(nowMs / 1000);
+  const counter = Math.floor(nowSec / period);
+  const ttl = period - (nowSec % period);
+
+  const hmac = await signCounterHmac(key, counter);
   const binCode = dynamicTruncate(hmac);
 
   const mod = 10 ** digits;
@@ -68,6 +93,7 @@ export async function generateTotp(params: TotpParams): Promise<{ code: string; 
 export async function generateSteamGuardCode(params: {
   secretBytes: Uint8Array;
   period?: number;
+  cacheKey?: string;
 }): Promise<{ code: string; ttl: number }> {
   const period = params.period ?? 30;
 
@@ -75,20 +101,11 @@ export async function generateSteamGuardCode(params: {
   const counter = Math.floor(nowSec / period);
   const ttl = period - (nowSec % period);
 
-  const key = await crypto.subtle.importKey(
-    "raw",
-    params.secretBytes as unknown as BufferSource,
-    { name: "HMAC", hash: "SHA-1" },
-    false,
-    ["sign"],
-  );
+  const key = params.cacheKey
+    ? await getCachedHmacSha1Key(`steam:${params.cacheKey}`, () => params.secretBytes.slice())
+    : await importHmacSha1Key(params.secretBytes);
 
-  const mac = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    counterToBytes(counter) as unknown as BufferSource,
-  );
-  const hmac = new Uint8Array(mac);
+  const hmac = await signCounterHmac(key, counter);
   let n = dynamicTruncate(hmac);
 
   let out = "";

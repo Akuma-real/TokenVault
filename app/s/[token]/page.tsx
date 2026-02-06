@@ -16,28 +16,26 @@ export default async function SharePage({ params }: { params: Promise<{ token: s
   const tokenHash = await sha256Hex(token);
 
   const supabase = getSupabaseAdmin();
-  const { data: rows, error } = await supabase.rpc("peek_share_token", {
+  const { data: rows, error } = await supabase.rpc("peek_share_token_with_account", {
     p_token_hash: tokenHash,
   });
 
   const share = Array.isArray(rows) && rows.length > 0
-    ? (rows[0] as { account_id?: string; expires_at?: string; consumed_at?: string | null; is_valid?: boolean })
+    ? (rows[0] as {
+        account_id?: string;
+        expires_at?: string;
+        consumed_at?: string | null;
+        is_valid?: boolean;
+        label?: string;
+        issuer?: string | null;
+      })
     : null;
 
   const isValid = !!share?.is_valid;
   const isConsumed = !!share?.consumed_at;
 
-  let label = "账户";
-  let issuer: string | null = null;
-  if (isValid && share?.account_id) {
-    const { data: account } = await supabase
-      .from("accounts")
-      .select("label,issuer")
-      .eq("id", share.account_id)
-      .maybeSingle();
-    if (account?.label) label = account.label;
-    issuer = account?.issuer ?? null;
-  }
+  const label = share?.label?.trim() ? share.label : "账户";
+  const issuer = share?.issuer ?? null;
 
   return (
     <div className="tv-container flex min-h-[100svh] max-w-md flex-col justify-center py-12">

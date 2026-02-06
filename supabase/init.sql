@@ -120,4 +120,40 @@ as $$
   where st.token_hash = p_token_hash;
 $$;
 
+-- Preview lookup with account snapshot, used by consume API before atomic consume.
+create or replace function public.peek_share_token_with_account(p_token_hash text)
+returns table(
+  account_id uuid,
+  payload_ciphertext text,
+  expires_at timestamptz,
+  consumed_at timestamptz,
+  is_valid boolean,
+  label text,
+  issuer text,
+  encrypted_secret text,
+  digits int,
+  period int,
+  algorithm text
+)
+language sql
+security definer
+set search_path = public
+as $$
+  select
+    st.account_id,
+    st.payload_ciphertext,
+    st.expires_at,
+    st.consumed_at,
+    (st.consumed_at is null and st.expires_at > now()) as is_valid,
+    a.label,
+    a.issuer,
+    a.encrypted_secret,
+    a.digits,
+    a.period,
+    a.algorithm
+  from public.share_tokens st
+  join public.accounts a on a.id = st.account_id
+  where st.token_hash = p_token_hash;
+$$;
+
 commit;

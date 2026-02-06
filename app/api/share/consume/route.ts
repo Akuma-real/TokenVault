@@ -5,25 +5,7 @@ import { base64urlToBytes } from "@/lib/base64url";
 import { generateSteamGuardCode, generateTotp } from "@/lib/totp";
 import { sha256Hex } from "@/lib/crypto";
 import { decryptSharePayload } from "@/lib/share";
-
-async function readBody(req: Request): Promise<Record<string, unknown>> {
-  const contentType = req.headers.get("content-type") ?? "";
-  if (contentType.includes("application/json")) {
-    try {
-      return (await req.json()) as Record<string, unknown>;
-    } catch {
-      return {};
-    }
-  }
-  try {
-    const form = await req.formData();
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of form.entries()) out[k] = v;
-    return out;
-  } catch {
-    return {};
-  }
-}
+import { readRequestBody } from "@/lib/request";
 
 function noStore(res: NextResponse): NextResponse {
   res.headers.set("Cache-Control", "no-store");
@@ -31,7 +13,7 @@ function noStore(res: NextResponse): NextResponse {
 }
 
 export async function POST(req: Request) {
-  const body = await readBody(req);
+  const body = await readRequestBody(req);
   const token = typeof body.token === "string" ? body.token.trim() : "";
   if (!token) return noStore(NextResponse.json({ error: "token_required" }, { status: 400 }));
 
@@ -41,7 +23,7 @@ export async function POST(req: Request) {
   const ip = forwardedFor ? forwardedFor.split(",")[0]?.trim() ?? null : null;
   const userAgent = req.headers.get("user-agent");
 
-  const { data: peekRows, error: peekError } = await supabase.rpc("peek_share_token", {
+  const { data: peekRows, error: peekError } = await supabase.rpc("peek_share_token_with_account", {
     p_token_hash: tokenHash,
   });
 
@@ -51,36 +33,36 @@ export async function POST(req: Request) {
 
   const peek =
     Array.isArray(peekRows) && peekRows.length > 0
-      ? (peekRows[0] as { account_id?: string; is_valid?: boolean })
+      ? (peekRows[0] as {
+          account_id?: string;
+          payload_ciphertext?: string;
+          is_valid?: boolean;
+          label?: string;
+          issuer?: string | null;
+          encrypted_secret?: string;
+          digits?: number;
+          period?: number;
+          algorithm?: string;
+        })
       : null;
 
   const accountId = peek?.account_id ?? null;
   if (!accountId || !peek?.is_valid) return noStore(NextResponse.json({ error: "gone" }, { status: 410 }));
 
-  const { data: account, error: accountError } = await supabase
-    .from("accounts")
-    .select("label,issuer,encrypted_secret,digits,period,algorithm")
-    .eq("id", accountId)
-    .single();
-
-  if (accountError || !account) {
-    return noStore(
-      NextResponse.json(
-        { error: "db_error", details: accountError?.message ?? "not_found" },
-        { status: 500 },
-      ),
-    );
+  const encryptedSecret = peek.encrypted_secret ?? "";
+  if (!encryptedSecret) {
+    return noStore(NextResponse.json({ error: "db_error", details: "missing_account_secret" }, { status: 500 }));
   }
 
   let secret = "";
   try {
-    secret = await decryptSecret(account.encrypted_secret);
+    secret = await decryptSecret(encryptedSecret);
   } catch {
     return noStore(NextResponse.json({ error: "decrypt_failed" }, { status: 500 }));
   }
 
-  const algorithm = (account.algorithm ?? "SHA1").toUpperCase();
-  const period = account.period ?? 30;
+  const algorithm = (peek.algorithm ?? "SHA1").toUpperCase();
+  const period = peek.period ?? 30;
 
   let code = "";
   let ttl = 0;
@@ -91,11 +73,11 @@ export async function POST(req: Request) {
     } catch {
       return noStore(NextResponse.json({ error: "invalid_secret" }, { status: 500 }));
     }
-    ({ code, ttl } = await generateSteamGuardCode({ secretBytes, period }));
+    ({ code, ttl } = await generateSteamGuardCode({ secretBytes, period, cacheKey: secret }));
   } else if (algorithm === "SHA1") {
     ({ code, ttl } = await generateTotp({
       secret,
-      digits: account.digits ?? 6,
+      digits: peek.digits ?? 6,
       period,
     }));
   } else {
@@ -119,6 +101,9 @@ export async function POST(req: Request) {
 
   const consumedAccountId = consumed?.account_id ?? null;
   if (!consumedAccountId) return noStore(NextResponse.json({ error: "gone" }, { status: 410 }));
+  if (consumedAccountId.toLowerCase() !== accountId.toLowerCase()) {
+    return noStore(NextResponse.json({ error: "invalid_payload" }, { status: 500 }));
+  }
 
   const payload = await decryptSharePayload(consumed?.payload_ciphertext ?? "");
   if (
@@ -131,7 +116,11 @@ export async function POST(req: Request) {
   return noStore(
     NextResponse.json({
       payload: {
-        account: { id: accountId, label: account.label, issuer: account.issuer },
+        account: {
+          id: accountId,
+          label: peek.label ?? "账户",
+          issuer: peek.issuer ?? null,
+        },
         code,
         ttl,
       },
